@@ -17,6 +17,18 @@ export const RENDERING = {
   cameraFar: 550,
 } as const;
 
+export const SIMULATION = {
+  defaultSpeed: 1,
+  speeds: [0.5, 1, 2, 5],
+  safeFollowingDistance: 7,
+  stopDistance: 1.2,
+} as const;
+
+export const TRAFFIC_LIGHTS = {
+  greenDuration: 8,
+  yellowDuration: 2,
+} as const;
+
 export const COLORS = {
   asphalt: 0x262b2d,
   asphaltShoulder: 0x303639,

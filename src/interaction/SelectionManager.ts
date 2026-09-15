@@ -47,6 +47,10 @@ export class SelectionManager {
     }
   }
 
+  getSelectedInfo(): SelectableInfo | null {
+    return this.selected ? this.getSelectableInfo(this.selected) : null;
+  }
+
   private readonly handlePointerMove = (event: PointerEvent): void => {
     const rect = this.domElement.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
