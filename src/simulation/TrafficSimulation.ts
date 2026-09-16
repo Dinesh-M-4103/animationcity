@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { roadNetwork, testVehicles, trafficLights } from '../data/cityBlockData';
+import { roadNetwork, trafficLights } from '../data/cityBlockData';
 import { TrafficDebugView } from './debug/TrafficDebugView';
 import { RouteManager } from './traffic/RouteManager';
 import { TrafficLightController } from './traffic/TrafficLightController';
@@ -10,7 +10,7 @@ export class TrafficSimulation {
   readonly object = new THREE.Group();
   readonly trafficLights = new TrafficLightController();
   readonly routes = new RouteManager(roadNetwork);
-  readonly vehicleManager = new VehicleManager(testVehicles, this.routes, this.trafficLights);
+  readonly vehicleManager = new VehicleManager(24, this.routes, this.trafficLights);
   readonly debugView = new TrafficDebugView(roadNetwork, this.routes);
   private readonly signalVisuals = new TrafficLightVisuals(trafficLights, this.trafficLights);
 

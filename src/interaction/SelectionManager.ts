@@ -26,6 +26,7 @@ export class SelectionManager {
   private readonly selectionBox = new THREE.BoxHelper(new THREE.Object3D(), COLORS.selection);
   private hovered: THREE.Object3D | null = null;
   private selected: THREE.Object3D | null = null;
+  private readonly pointerDownPos = new THREE.Vector2();
 
   constructor(options: SelectionManagerOptions) {
     this.camera = options.camera;
@@ -36,6 +37,7 @@ export class SelectionManager {
     this.selectionBox.visible = false;
     this.scene.add(this.selectionBox);
 
+    this.domElement.addEventListener('pointerdown', this.handlePointerDown);
     this.domElement.addEventListener('pointermove', this.handlePointerMove);
     this.domElement.addEventListener('pointerleave', this.handlePointerLeave);
     this.domElement.addEventListener('click', this.handleClick);
@@ -50,6 +52,10 @@ export class SelectionManager {
   getSelectedInfo(): SelectableInfo | null {
     return this.selected ? this.getSelectableInfo(this.selected) : null;
   }
+
+  private readonly handlePointerDown = (event: PointerEvent): void => {
+    this.pointerDownPos.set(event.clientX, event.clientY);
+  };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
     const rect = this.domElement.getBoundingClientRect();
@@ -67,7 +73,14 @@ export class SelectionManager {
     this.domElement.style.cursor = 'default';
   };
 
-  private readonly handleClick = (): void => {
+  private readonly handleClick = (event: MouseEvent): void => {
+    const dragDistance = Math.hypot(
+      event.clientX - this.pointerDownPos.x,
+      event.clientY - this.pointerDownPos.y,
+    );
+    // Ignore clicks if user was dragging to orbit or pan
+    if (dragDistance > 6) return;
+
     this.selected = this.hovered;
     this.selectionBox.visible = Boolean(this.selected);
 

@@ -20,6 +20,7 @@ export class CitySimulationApp {
   private readonly world: CityWorld;
   private readonly selection: SelectionManager;
   private animationFrame = 0;
+  private telemetryElapsed = 0;
 
   constructor(root: HTMLDivElement) {
     this.shell = document.createElement('div');
@@ -31,9 +32,11 @@ export class CitySimulationApp {
     this.shell.append(this.canvas);
 
     this.renderer = createRenderer(this.canvas);
+    const initialWidth = Math.max(320, this.shell.clientWidth || window.innerWidth);
+    const initialHeight = Math.max(240, this.shell.clientHeight || window.innerHeight);
     this.camera = new THREE.PerspectiveCamera(
       RENDERING.cameraFov,
-      this.shell.clientWidth / this.shell.clientHeight,
+      initialWidth / initialHeight,
       RENDERING.cameraNear,
       RENDERING.cameraFar,
     );
@@ -43,27 +46,32 @@ export class CitySimulationApp {
 
     this.world = new CityWorld();
     this.scene.add(this.world.object);
+
     this.infoPanel = new InfoPanel(this.shell, {
       onTrafficModeChange: (mode) => {
         this.world.trafficSimulation.trafficLights.setMode(mode);
-        this.refreshPanels();
+        this.updateTelemetry();
       },
       onTrafficPhaseChange: (phase) => {
         this.world.trafficSimulation.trafficLights.setManualPhase(phase);
-        this.refreshPanels();
+        this.updateTelemetry();
       },
       onPauseToggle: () => {
         this.clock.togglePaused();
-        this.refreshPanels();
+        this.updateSimulationUi();
       },
       onSpeedChange: (speed) => {
         this.clock.setSpeed(speed);
-        this.refreshPanels();
+        this.updateSimulationUi();
       },
       onDebugToggle: () => {
         const debug = this.world.trafficSimulation.debugView;
         debug.setEnabled(!debug.isEnabled());
-        this.refreshPanels();
+        this.updateSimulationUi();
+      },
+      onDensityChange: (density) => {
+        this.world.trafficSimulation.vehicleManager.setDensity(density);
+        this.updateSimulationUi();
       },
     });
 
@@ -71,12 +79,18 @@ export class CitySimulationApp {
       camera: this.camera,
       scene: this.scene,
       domElement: this.renderer.domElement,
-      onSelectionChanged: (info) => this.infoPanel.setSelection(info, this.getTrafficDetails(info)),
+      onSelectionChanged: (info) => {
+        this.infoPanel.setSelection(info);
+        this.updateTelemetry();
+      },
     });
 
     this.setupOverlay();
     this.handleResize();
     window.addEventListener('resize', this.handleResize);
+
+    this.updateSimulationUi();
+    this.updateTelemetry();
   }
 
   start(): void {
@@ -89,14 +103,21 @@ export class CitySimulationApp {
     this.world.update(deltaSeconds);
     this.cameraController.update(deltaSeconds);
     this.selection.update();
-    this.refreshPanels();
+
+    // Throttle telemetry to 10 Hz while keeping 3D render at 60 FPS
+    this.telemetryElapsed += deltaSeconds;
+    if (this.telemetryElapsed >= 0.1) {
+      this.updateTelemetry();
+      this.telemetryElapsed = 0;
+    }
+
     this.renderer.render(this.scene, this.camera);
     this.animationFrame += 1;
   };
 
   private readonly handleResize = (): void => {
-    const width = this.shell.clientWidth;
-    const height = this.shell.clientHeight;
+    const width = Math.max(320, this.shell.clientWidth || window.innerWidth);
+    const height = Math.max(240, this.shell.clientHeight || window.innerHeight);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
@@ -120,18 +141,19 @@ export class CitySimulationApp {
     this.shell.append(topBar, hint);
   }
 
-  private refreshPanels(): void {
-    const selected = this.selection.getSelectedInfo();
-    this.infoPanel.setSelection(selected, this.getTrafficDetails(selected));
+  private updateTelemetry(): void {
+    const metrics = this.world.trafficSimulation.vehicleManager.getMetrics();
+    const trafficSnapshot = this.world.trafficSimulation.trafficLights.getSnapshot();
+    const selectedInfo = this.selection.getSelectedInfo();
+    this.infoPanel.updateTelemetry(metrics, trafficSnapshot, selectedInfo);
+  }
+
+  private updateSimulationUi(): void {
     this.infoPanel.setSimulationState({
       paused: this.clock.isPaused(),
       speed: this.clock.getSpeed(),
+      density: this.world.trafficSimulation.vehicleManager.getDensity(),
       debugEnabled: this.world.trafficSimulation.debugView.isEnabled(),
     });
-  }
-
-  private getTrafficDetails(info: { type: string } | null): Record<string, string | number> {
-    if (info?.type !== 'intersection') return {};
-    return this.world.trafficSimulation.trafficLights.getSnapshot();
   }
 }

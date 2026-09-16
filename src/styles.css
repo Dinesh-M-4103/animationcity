@@ -229,32 +229,79 @@ button.active {
 }
 
 .button-grid button,
-.speed-row button {
+.speed-row button,
+.density-row button {
   flex: 1 1 64px;
   padding: 0 10px;
 }
 
+.density-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.density-label,
+.speed-label {
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: rgba(238, 244, 248, 0.62);
+  text-transform: uppercase;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-item span {
+  color: rgba(238, 244, 248, 0.62);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-item strong {
+  color: #62d9ff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
-  .top-bar,
-  .info-panel,
-  .simulation-panel,
-  .hint {
+  .top-bar {
     left: 12px;
     right: 12px;
+    max-width: calc(100vw - 24px);
   }
 
   .info-panel {
-    top: auto;
-    bottom: 144px;
-    width: auto;
+    top: 68px;
+    right: 12px;
+    width: min(280px, calc(100vw - 24px));
+    max-height: 38vh;
+    overflow-y: auto;
   }
 
   .simulation-panel {
-    bottom: 56px;
-    width: auto;
+    bottom: 12px;
+    right: 12px;
+    width: min(280px, calc(100vw - 24px));
+    max-height: 44vh;
+    overflow-y: auto;
   }
 
   .hint {
-    bottom: 12px;
+    display: none;
   }
 }
