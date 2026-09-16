@@ -22,7 +22,16 @@ export class CameraController {
     this.controls.target.set(0, 3, 0);
     this.controls.panSpeed = 0.85;
     this.controls.zoomSpeed = 1.1;
-    this.controls.rotateSpeed = 0.65;
+    this.controls.rotateSpeed = 0.8;
+    this.controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.ROTATE,
+    };
+    this.controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN,
+    };
     this.controls.update();
   }
 
