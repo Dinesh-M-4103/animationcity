@@ -65,13 +65,22 @@ export class CitySimulationApp {
         this.updateSimulationUi();
       },
       onDebugToggle: () => {
-        const debug = this.world.trafficSimulation.debugView;
-        debug.setEnabled(!debug.isEnabled());
+        const trafficDebug = this.world.trafficSimulation.debugView;
+        const pedDebug = this.world.pedestrianSimulation.debugView;
+        const newState = !trafficDebug.isEnabled();
+        trafficDebug.setEnabled(newState);
+        pedDebug.setEnabled(newState);
         this.updateSimulationUi();
       },
       onDensityChange: (density) => {
         this.world.trafficSimulation.vehicleManager.setDensity(density);
         this.updateSimulationUi();
+        this.updateTelemetry();
+      },
+      onPedestrianDensityChange: (density) => {
+        this.world.pedestrianSimulation.manager.setDensity(density);
+        this.updateSimulationUi();
+        this.updateTelemetry();
       },
     });
 
@@ -100,18 +109,41 @@ export class CitySimulationApp {
 
   private readonly tick = (): void => {
     const deltaSeconds = this.clock.tick();
-    this.world.update(deltaSeconds);
-    this.cameraController.update(deltaSeconds);
-    this.selection.update();
+
+    try {
+      this.world.update(deltaSeconds);
+    } catch (err) {
+      console.error('Simulation world update error:', err);
+    }
+
+    try {
+      this.cameraController.update(deltaSeconds);
+    } catch (err) {
+      console.error('Camera controller update error:', err);
+    }
+
+    try {
+      this.selection.update();
+    } catch (err) {
+      console.error('Selection manager update error:', err);
+    }
 
     // Throttle telemetry to 10 Hz while keeping 3D render at 60 FPS
     this.telemetryElapsed += deltaSeconds;
     if (this.telemetryElapsed >= 0.1) {
-      this.updateTelemetry();
+      try {
+        this.updateTelemetry();
+      } catch (err) {
+        console.error('Telemetry update error:', err);
+      }
       this.telemetryElapsed = 0;
     }
 
-    this.renderer.render(this.scene, this.camera);
+    try {
+      this.renderer.render(this.scene, this.camera);
+    } catch (err) {
+      console.error('Scene render error:', err);
+    }
     this.animationFrame += 1;
   };
 
@@ -130,22 +162,23 @@ export class CitySimulationApp {
       <div class="brand-mark"></div>
       <div class="title">
         <strong>City Simulation</strong>
-        <span>Step 2: traffic simulation foundation</span>
+        <span>Step 3: human & traffic simulation</span>
       </div>
     `;
 
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = 'Orbit, pan, and zoom with the mouse. Select buildings, vehicles, or the main intersection.';
+    hint.textContent = 'Orbit, pan, and zoom with mouse. Click buildings, vehicles, pedestrians, or the intersection.';
 
     this.shell.append(topBar, hint);
   }
 
   private updateTelemetry(): void {
-    const metrics = this.world.trafficSimulation.vehicleManager.getMetrics();
+    const vehMetrics = this.world.trafficSimulation.vehicleManager.getMetrics();
+    const pedMetrics = this.world.pedestrianSimulation.manager.getMetrics();
     const trafficSnapshot = this.world.trafficSimulation.trafficLights.getSnapshot();
     const selectedInfo = this.selection.getSelectedInfo();
-    this.infoPanel.updateTelemetry(metrics, trafficSnapshot, selectedInfo);
+    this.infoPanel.updateTelemetry(vehMetrics, pedMetrics, trafficSnapshot, selectedInfo);
   }
 
   private updateSimulationUi(): void {
@@ -153,6 +186,7 @@ export class CitySimulationApp {
       paused: this.clock.isPaused(),
       speed: this.clock.getSpeed(),
       density: this.world.trafficSimulation.vehicleManager.getDensity(),
+      pedestrianDensity: this.world.pedestrianSimulation.manager.getDensity(),
       debugEnabled: this.world.trafficSimulation.debugView.isEnabled(),
     });
   }

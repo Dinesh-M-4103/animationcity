@@ -1,4 +1,4 @@
-export type SelectableType = 'building' | 'intersection' | 'vehicle';
+export type SelectableType = 'building' | 'intersection' | 'vehicle' | 'pedestrian';
 
 export interface SelectableInfo {
   id: string;

@@ -1,6 +1,7 @@
 import type { SelectableInfo } from '../types/Selectable';
 import type { TrafficControllerMode, TrafficPhase } from '../types/Traffic';
 import type { TrafficDensityLevel, TrafficMetrics } from '../simulation/vehicles/VehicleSpawner';
+import type { PedestrianDensityLevel, PedestrianMetrics } from '../types/Pedestrian';
 
 export interface InfoPanelOptions {
   onTrafficModeChange: (mode: TrafficControllerMode) => void;
@@ -9,12 +10,14 @@ export interface InfoPanelOptions {
   onSpeedChange: (speed: number) => void;
   onDebugToggle: () => void;
   onDensityChange: (density: TrafficDensityLevel) => void;
+  onPedestrianDensityChange: (density: PedestrianDensityLevel) => void;
 }
 
 export interface SimulationUiState {
   paused: boolean;
   speed: number;
   density: TrafficDensityLevel;
+  pedestrianDensity: PedestrianDensityLevel;
   debugEnabled: boolean;
 }
 
@@ -35,11 +38,20 @@ export class InfoPanel {
   private readonly pauseBtn: HTMLButtonElement;
   private readonly debugBtn: HTMLButtonElement;
   private readonly speedButtons = new Map<number, HTMLButtonElement>();
-  private readonly densityButtons = new Map<TrafficDensityLevel, HTMLButtonElement>();
-  private readonly metricActiveEl: HTMLElement;
-  private readonly metricWaitingEl: HTMLElement;
-  private readonly metricSpeedEl: HTMLElement;
-  private readonly metricCompletedEl: HTMLElement;
+  private readonly vehicleDensityButtons = new Map<TrafficDensityLevel, HTMLButtonElement>();
+  private readonly pedDensityButtons = new Map<PedestrianDensityLevel, HTMLButtonElement>();
+
+  // Vehicle Metrics
+  private readonly metricVehActiveEl: HTMLElement;
+  private readonly metricVehWaitingEl: HTMLElement;
+  private readonly metricVehSpeedEl: HTMLElement;
+  private readonly metricVehCompletedEl: HTMLElement;
+
+  // Pedestrian Metrics
+  private readonly metricPedActiveEl: HTMLElement;
+  private readonly metricPedWalkingEl: HTMLElement;
+  private readonly metricPedWaitingEl: HTMLElement;
+  private readonly metricPedCrossingEl: HTMLElement;
 
   private currentSelection: SelectableInfo | null = null;
   private currentMode: TrafficControllerMode = 'AUTO';
@@ -118,7 +130,7 @@ export class InfoPanel {
     // 2. Build Simulation Panel Structure (ONCE)
     // ==========================================
     const simTitle = document.createElement('h2');
-    simTitle.textContent = 'Simulation';
+    simTitle.textContent = 'Simulation Control';
     this.simulationPanel.appendChild(simTitle);
 
     const mainActionsRow = document.createElement('div');
@@ -150,40 +162,79 @@ export class InfoPanel {
     }
     this.simulationPanel.appendChild(speedRow);
 
-    // Density controls
-    const densityLabel = document.createElement('div');
-    densityLabel.className = 'density-label';
-    densityLabel.textContent = 'Traffic Density';
-    this.simulationPanel.appendChild(densityLabel);
+    // Vehicle Density controls
+    const vehDensityLabel = document.createElement('div');
+    vehDensityLabel.className = 'density-label';
+    vehDensityLabel.textContent = 'Vehicle Density';
+    this.simulationPanel.appendChild(vehDensityLabel);
 
-    const densityRow = document.createElement('div');
-    densityRow.className = 'density-row';
+    const vehDensityRow = document.createElement('div');
+    vehDensityRow.className = 'density-row';
     for (const d of ['LOW', 'MEDIUM', 'HIGH'] as TrafficDensityLevel[]) {
       const btn = document.createElement('button');
       btn.textContent = d;
-      btn.dataset.simDensity = d;
+      btn.dataset.simVehDensity = d;
       if (d === 'MEDIUM') btn.className = 'active';
-      densityRow.appendChild(btn);
-      this.densityButtons.set(d, btn);
+      vehDensityRow.appendChild(btn);
+      this.vehicleDensityButtons.set(d, btn);
     }
-    this.simulationPanel.appendChild(densityRow);
+    this.simulationPanel.appendChild(vehDensityRow);
 
-    // Metrics HUD
-    const metricsGrid = document.createElement('div');
-    metricsGrid.className = 'metrics-grid';
+    // Pedestrian Density controls
+    const pedDensityLabel = document.createElement('div');
+    pedDensityLabel.className = 'density-label';
+    pedDensityLabel.textContent = 'Pedestrian Density';
+    this.simulationPanel.appendChild(pedDensityLabel);
 
+    const pedDensityRow = document.createElement('div');
+    pedDensityRow.className = 'density-row';
+    for (const d of ['LOW', 'MEDIUM', 'HIGH'] as PedestrianDensityLevel[]) {
+      const btn = document.createElement('button');
+      btn.textContent = d;
+      btn.dataset.simPedDensity = d;
+      if (d === 'MEDIUM') btn.className = 'active';
+      pedDensityRow.appendChild(btn);
+      this.pedDensityButtons.set(d, btn);
+    }
+    this.simulationPanel.appendChild(pedDensityRow);
+
+    // Vehicles Metrics HUD
+    const vehMetricsLabel = document.createElement('div');
+    vehMetricsLabel.className = 'density-label';
+    vehMetricsLabel.textContent = 'Vehicle Telemetry';
+    this.simulationPanel.appendChild(vehMetricsLabel);
+
+    const vehMetricsGrid = document.createElement('div');
+    vehMetricsGrid.className = 'metrics-grid';
     const { item: mActiveItem, valueEl: mActiveVal } = this.createMetricElement('Active Vehicles');
     const { item: mWaitItem, valueEl: mWaitVal } = this.createMetricElement('Vehicles Waiting');
     const { item: mSpeedItem, valueEl: mSpeedVal } = this.createMetricElement('Average Speed');
     const { item: mCompItem, valueEl: mCompVal } = this.createMetricElement('Completed Trips');
+    this.metricVehActiveEl = mActiveVal;
+    this.metricVehWaitingEl = mWaitVal;
+    this.metricVehSpeedEl = mSpeedVal;
+    this.metricVehCompletedEl = mCompVal;
+    vehMetricsGrid.append(mActiveItem, mWaitItem, mSpeedItem, mCompItem);
+    this.simulationPanel.appendChild(vehMetricsGrid);
 
-    this.metricActiveEl = mActiveVal;
-    this.metricWaitingEl = mWaitVal;
-    this.metricSpeedEl = mSpeedVal;
-    this.metricCompletedEl = mCompVal;
+    // Pedestrians Metrics HUD
+    const pedMetricsLabel = document.createElement('div');
+    pedMetricsLabel.className = 'density-label';
+    pedMetricsLabel.textContent = 'Pedestrian Telemetry';
+    this.simulationPanel.appendChild(pedMetricsLabel);
 
-    metricsGrid.append(mActiveItem, mWaitItem, mSpeedItem, mCompItem);
-    this.simulationPanel.appendChild(metricsGrid);
+    const pedMetricsGrid = document.createElement('div');
+    pedMetricsGrid.className = 'metrics-grid';
+    const { item: pActiveItem, valueEl: pActiveVal } = this.createMetricElement('Active Pedestrians');
+    const { item: pWalkItem, valueEl: pWalkVal } = this.createMetricElement('Walking');
+    const { item: pWaitItem, valueEl: pWaitVal } = this.createMetricElement('Waiting at Crossing');
+    const { item: pCrossItem, valueEl: pCrossVal } = this.createMetricElement('Crossing Street');
+    this.metricPedActiveEl = pActiveVal;
+    this.metricPedWalkingEl = pWalkVal;
+    this.metricPedWaitingEl = pWaitVal;
+    this.metricPedCrossingEl = pCrossVal;
+    pedMetricsGrid.append(pActiveItem, pWalkItem, pWaitItem, pCrossItem);
+    this.simulationPanel.appendChild(pedMetricsGrid);
 
     // Event listeners
     this.infoPanel.addEventListener('click', this.handlePanelClick);
@@ -213,25 +264,36 @@ export class InfoPanel {
   }
 
   updateTelemetry(
-    metrics: TrafficMetrics,
+    vehMetrics: TrafficMetrics,
+    pedMetrics: PedestrianMetrics,
     trafficSnapshot: Record<string, string | number>,
     selectedInfo: SelectableInfo | null,
   ): void {
-    // 1. Update Metrics HUD
-    this.metricActiveEl.textContent = String(metrics.activeVehicles);
-    this.metricWaitingEl.textContent = String(metrics.waitingVehicles);
-    this.metricSpeedEl.textContent = `${metrics.averageSpeedKmH} km/h`;
-    this.metricCompletedEl.textContent = String(metrics.completedTrips);
+    // 1. Update Vehicle Metrics HUD
+    this.metricVehActiveEl.textContent = String(vehMetrics.activeVehicles);
+    this.metricVehWaitingEl.textContent = String(vehMetrics.waitingVehicles);
+    this.metricVehSpeedEl.textContent = `${vehMetrics.averageSpeedKmH} km/h`;
+    this.metricVehCompletedEl.textContent = String(vehMetrics.completedTrips);
 
-    // 2. If selected item is a vehicle or intersection, update live detail values
+    // 2. Update Pedestrian Metrics HUD
+    this.metricPedActiveEl.textContent = String(pedMetrics.activePedestrians);
+    this.metricPedWalkingEl.textContent = String(pedMetrics.walkingPedestrians);
+    this.metricPedWaitingEl.textContent = String(pedMetrics.waitingPedestrians);
+    this.metricPedCrossingEl.textContent = String(pedMetrics.crossingPedestrians);
+
+    // 3. If selected item is a vehicle, pedestrian, or intersection, update live detail values
     if (this.currentSelection) {
-      if (this.currentSelection.type === 'vehicle' && selectedInfo?.id === this.currentSelection.id) {
+      if (
+        (this.currentSelection.type === 'vehicle' || this.currentSelection.type === 'pedestrian') &&
+        selectedInfo?.id === this.currentSelection.id
+      ) {
         this.updateDlContent(selectedInfo.details);
       } else if (this.currentSelection.type === 'intersection') {
         const intersectionDetails = {
           ...this.currentSelection.details,
-          Traffic: metrics.activeVehicles,
-          Waiting: metrics.waitingVehicles,
+          'Active Vehicles': vehMetrics.activeVehicles,
+          'Waiting Vehicles': vehMetrics.waitingVehicles,
+          'Crossing Pedestrians': pedMetrics.crossingPedestrians,
           Mode: trafficSnapshot.Mode,
           Phase: trafficSnapshot.Phase,
         };
@@ -239,7 +301,7 @@ export class InfoPanel {
       }
     }
 
-    // 3. Update Traffic Light Signal Dots and Button States
+    // 4. Update Traffic Light Signal Dots and Button States
     const nsState = String(trafficSnapshot['North / South'] ?? 'RED');
     const ewState = String(trafficSnapshot['East / West'] ?? 'RED');
     this.updateAxisDots(this.nsSignalDots, nsState);
@@ -267,8 +329,12 @@ export class InfoPanel {
       btn.classList.toggle('active', spd === state.speed);
     }
 
-    for (const [den, btn] of this.densityButtons) {
+    for (const [den, btn] of this.vehicleDensityButtons) {
       btn.classList.toggle('active', den === state.density);
+    }
+
+    for (const [den, btn] of this.pedDensityButtons) {
+      btn.classList.toggle('active', den === state.pedestrianDensity);
     }
   }
 
@@ -276,7 +342,7 @@ export class InfoPanel {
     this.dlEl.innerHTML = `
       <dt>Status</dt><dd>Ready</dd>
       <dt>Selection</dt><dd>None</dd>
-      <dt>Simulation</dt><dd>Traffic, lights, spline routing</dd>
+      <dt>Simulation</dt><dd>Vehicles, Pedestrians, Signals</dd>
     `;
   }
 
@@ -348,11 +414,13 @@ export class InfoPanel {
 
     const action = target.dataset.simAction;
     const speed = target.dataset.simSpeed;
-    const density = target.dataset.simDensity as TrafficDensityLevel | undefined;
+    const vehDensity = target.dataset.simVehDensity as TrafficDensityLevel | undefined;
+    const pedDensity = target.dataset.simPedDensity as PedestrianDensityLevel | undefined;
 
     if (action === 'toggle-pause') this.options.onPauseToggle();
     if (action === 'debug') this.options.onDebugToggle();
     if (speed) this.options.onSpeedChange(Number(speed));
-    if (density) this.options.onDensityChange(density);
+    if (vehDensity) this.options.onDensityChange(vehDensity);
+    if (pedDensity) this.options.onPedestrianDensityChange(pedDensity);
   };
 }

@@ -28,6 +28,8 @@ export class SelectionManager {
   private selected: THREE.Object3D | null = null;
   private readonly pointerDownPos = new THREE.Vector2();
 
+  private isPointerDown = false;
+
   constructor(options: SelectionManagerOptions) {
     this.camera = options.camera;
     this.scene = options.scene;
@@ -41,6 +43,7 @@ export class SelectionManager {
     this.domElement.addEventListener('pointermove', this.handlePointerMove);
     this.domElement.addEventListener('pointerleave', this.handlePointerLeave);
     this.domElement.addEventListener('click', this.handleClick);
+    window.addEventListener('pointerup', this.handlePointerUp);
   }
 
   update(): void {
@@ -54,10 +57,18 @@ export class SelectionManager {
   }
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
+    this.isPointerDown = true;
     this.pointerDownPos.set(event.clientX, event.clientY);
   };
 
+  private readonly handlePointerUp = (): void => {
+    this.isPointerDown = false;
+  };
+
   private readonly handlePointerMove = (event: PointerEvent): void => {
+    // If mouse button is held down (e.g. orbiting, zooming, panning), skip raycasting to keep rotation buttery smooth
+    if (this.isPointerDown) return;
+
     const rect = this.domElement.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
@@ -85,9 +96,12 @@ export class SelectionManager {
     this.selectionBox.visible = Boolean(this.selected);
 
     if (this.selected) {
-      this.selectionBox.setFromObject(this.selected);
-      this.onSelectionChanged(this.getSelectableInfo(this.selected));
-      return;
+      const info = this.getSelectableInfo(this.selected);
+      if (info) {
+        this.selectionBox.setFromObject(this.selected);
+        this.onSelectionChanged(info);
+        return;
+      }
     }
 
     this.onSelectionChanged(null);
@@ -112,7 +126,7 @@ export class SelectionManager {
 
     while (current) {
       const carrier = current as SelectableCarrier;
-      if (carrier.userData.selectableRoot) {
+      if (carrier.userData.selectableRoot && carrier.userData.selectableRoot.userData?.selectable) {
         return carrier.userData.selectableRoot;
       }
       if (carrier.userData.selectable) {
@@ -124,11 +138,8 @@ export class SelectionManager {
     return null;
   }
 
-  private getSelectableInfo(object: THREE.Object3D): SelectableInfo {
+  private getSelectableInfo(object: THREE.Object3D): SelectableInfo | null {
     const carrier = object as SelectableCarrier;
-    if (!carrier.userData.selectable) {
-      throw new Error(`Object ${object.name} is missing selectable metadata.`);
-    }
-    return carrier.userData.selectable;
+    return carrier.userData?.selectable ?? null;
   }
 }

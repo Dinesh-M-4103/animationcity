@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import type { TrafficLightController } from '../traffic/TrafficLightController';
 import type { RouteManager } from '../traffic/RouteManager';
+import type { PedestrianManager } from '../pedestrians/PedestrianManager';
 import { Vehicle } from './Vehicle';
 import { TrafficDensityLevel, TrafficMetrics, VehicleSpawner } from './VehicleSpawner';
 
 export class VehicleManager {
   readonly object = new THREE.Group();
   private readonly spawner: VehicleSpawner;
+  private pedestrians: PedestrianManager | null = null;
 
   constructor(
     poolSize = 24,
@@ -19,6 +21,10 @@ export class VehicleManager {
     for (const vehicle of this.spawner.getPool().getAll()) {
       this.object.add(vehicle.object);
     }
+  }
+
+  setPedestrianManager(pedestrians: PedestrianManager): void {
+    this.pedestrians = pedestrians;
   }
 
   getSpawner(): VehicleSpawner {
@@ -71,10 +77,53 @@ export class VehicleManager {
         }
       }
 
+      // Pedestrian crosswalk yielding safety
+      if (this.isPedestrianBlockingVehicle(vehicle)) {
+        desiredSpeed = 0;
+        vehicle.state = 'YIELDING';
+      }
+
       // Directional following: compute gap to the closest vehicle ahead
       const gapAhead = this.getDirectionalGapAhead(vehicle, activeVehicles);
       vehicle.update(deltaSeconds, desiredSpeed, gapAhead);
     }
+  }
+
+  private isPedestrianBlockingVehicle(vehicle: Vehicle): boolean {
+    if (!this.pedestrians) return false;
+
+    // Check if vehicle is approaching or passing a crosswalk zone
+    const pos = vehicle.object.position;
+
+    // 1. West Crosswalk (x ≈ -8.96, z around ±1.79)
+    if (Math.abs(pos.x - (-8.96)) < 8.0 && Math.abs(pos.z) < 4.0) {
+      if (this.pedestrians.isPedestrianInZone(-10.5, -7.5, pos.z - 2.0, pos.z + 2.0)) {
+        return true;
+      }
+    }
+
+    // 2. East Crosswalk (x ≈ 8.96, z around ±1.79)
+    if (Math.abs(pos.x - 8.96) < 8.0 && Math.abs(pos.z) < 4.0) {
+      if (this.pedestrians.isPedestrianInZone(7.5, 10.5, pos.z - 2.0, pos.z + 2.0)) {
+        return true;
+      }
+    }
+
+    // 3. North Crosswalk (z ≈ -8.96, x around ±1.79)
+    if (Math.abs(pos.z - (-8.96)) < 8.0 && Math.abs(pos.x) < 4.0) {
+      if (this.pedestrians.isPedestrianInZone(pos.x - 2.0, pos.x + 2.0, -10.5, -7.5)) {
+        return true;
+      }
+    }
+
+    // 4. South Crosswalk (z ≈ 8.96, x around ±1.79)
+    if (Math.abs(pos.z - 8.96) < 8.0 && Math.abs(pos.x) < 4.0) {
+      if (this.pedestrians.isPedestrianInZone(pos.x - 2.0, pos.x + 2.0, 7.5, 10.5)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private canEnterIntersection(

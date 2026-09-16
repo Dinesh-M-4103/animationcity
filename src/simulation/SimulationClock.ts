@@ -4,7 +4,7 @@ import { SIMULATION } from '../config/constants';
 export class SimulationClock {
   private readonly clock = new THREE.Clock(false);
   private paused = false;
-  private speed = SIMULATION.defaultSpeed;
+  private speed: number = SIMULATION.defaultSpeed;
 
   reset(): void {
     this.clock.start();
