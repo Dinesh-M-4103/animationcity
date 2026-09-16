@@ -4,9 +4,11 @@ import { EnvironmentFactory } from './environment/EnvironmentFactory';
 import { BuildingFactory } from './buildings/BuildingFactory';
 import { ParkedVehicleFactory } from './vehicles/ParkedVehicleFactory';
 import { RoadNetworkRenderer } from './roads/RoadNetworkRenderer';
+import { TrafficSimulation } from '../simulation/TrafficSimulation';
 
 export class CityWorld {
   readonly object = new THREE.Group();
+  readonly trafficSimulation = new TrafficSimulation();
 
   constructor() {
     this.object.name = 'CityWorld';
@@ -28,5 +30,10 @@ export class CityWorld {
     this.object.add(environmentFactory.createTrees());
     this.object.add(environmentFactory.createStreetProps());
     this.object.add(vehicleFactory.createParkedVehicles());
+    this.object.add(this.trafficSimulation.object);
+  }
+
+  update(deltaSeconds: number): void {
+    this.trafficSimulation.update(deltaSeconds);
   }
 }
