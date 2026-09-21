@@ -110,11 +110,12 @@ export class RoadNetworkRenderer {
       type: 'intersection',
       title: intersection.label,
       details: {
-        'Traffic lights': 'Not implemented yet',
+        'Traffic lights': intersection.trafficLightIds.length,
         Vehicles: 0,
         Pedestrians: 0,
         Roads: intersection.connectedRoadIds.length,
         Lanes: intersection.incomingLaneIds.length,
+        Connections: intersection.laneConnections.length,
       },
     };
     group.userData.selectable = info;

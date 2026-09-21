@@ -4,9 +4,13 @@ import { EnvironmentFactory } from './environment/EnvironmentFactory';
 import { BuildingFactory } from './buildings/BuildingFactory';
 import { ParkedVehicleFactory } from './vehicles/ParkedVehicleFactory';
 import { RoadNetworkRenderer } from './roads/RoadNetworkRenderer';
+import { TrafficSimulation } from '../simulation/TrafficSimulation';
+import { PedestrianSimulation } from '../simulation/pedestrians/PedestrianSimulation';
 
 export class CityWorld {
   readonly object = new THREE.Group();
+  readonly trafficSimulation = new TrafficSimulation();
+  readonly pedestrianSimulation: PedestrianSimulation;
 
   constructor() {
     this.object.name = 'CityWorld';
@@ -28,5 +32,17 @@ export class CityWorld {
     this.object.add(environmentFactory.createTrees());
     this.object.add(environmentFactory.createStreetProps());
     this.object.add(vehicleFactory.createParkedVehicles());
+
+    // Pedestrian simulation setup & vehicle safety connection
+    this.pedestrianSimulation = new PedestrianSimulation(this.trafficSimulation.trafficLights);
+    this.trafficSimulation.vehicleManager.setPedestrianManager(this.pedestrianSimulation.manager);
+
+    this.object.add(this.trafficSimulation.object);
+    this.object.add(this.pedestrianSimulation.object);
+  }
+
+  update(deltaSeconds: number): void {
+    this.trafficSimulation.update(deltaSeconds);
+    this.pedestrianSimulation.update(deltaSeconds);
   }
 }
